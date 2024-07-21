@@ -59,8 +59,6 @@ keyMapping = {
 }
 
 function moveToFrame()
-    print(frameNumber)
-    print(mp.get_property("estimated-frame-count"))
 if frameNumber >= mp.get_property("estimated-frame-count") then
 mp.osd_message("Frame number is greater than total frame number.", 5)
 else
