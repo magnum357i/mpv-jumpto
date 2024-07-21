@@ -5,5 +5,6 @@ Jump to plugin for mpv
 
 Key Bindings
 - `ctrl+j`: Enable jumping mode.
+- `ctrl+J`: Show current frame.
 - `enter`: Jump.
 - `esc`: Close jumping mode.
