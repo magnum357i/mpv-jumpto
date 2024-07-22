@@ -59,7 +59,7 @@ keyMapping = {
 }
 
 function moveToFrame()
-if frameNumber >= mp.get_property("estimated-frame-count") then
+if tonumber(frameNumber) >= tonumber(mp.get_property("estimated-frame-count")) then
 mp.osd_message("Frame number is greater than total frame number.", 5)
 else
 local fps = mp.get_property("container-fps")
