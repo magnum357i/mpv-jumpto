@@ -1,17 +1,18 @@
---v1.1
+--v1.2
 local utf8  = require "fastutf8"
 local input = {}
-local cursor, text
+local cursor, text, s_width, s_height, b_width, cached
 
-local function defaults()
+local text_overlay          = mp.create_osd_overlay("ass-events")
+text_overlay.compute_bounds = true
+text_overlay.hidden         = true
 
-    input.cursorTheme = "black"
-    input.font_size   = 0
-    input.max_length  = 500
-    input.format      = ""
-    input.accept_only = "" --digits,text
-    cursor            = 0
-    text              = ""
+local function build_lines(pre_c, post_c, o)
+
+    return
+    string.format("{\\bord0\\c&H%s&\\fs%s}", input.cursor_theme == "black" and "000000" or "FFFFFF", input.font_size)..pre_c..post_c,
+    string.format("{\\bord0\\alpha&HFF&\\fs%s}", input.font_size)..pre_c..string.format("{\\alpha&H00&\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s{\\p0\\alpha&HFF&}", input.cursor_theme == "black" and "000000" or "FFFFFF", input.font_size, input.font_size)..post_c,
+    o
 end
 
 local function filter(str)
@@ -25,6 +26,15 @@ local function filter(str)
 
         return str:gsub("%d+", "")
     end
+end
+
+local function get_text_width(text)
+
+    text_overlay.res_x, text_overlay.res_y = s_width, s_height
+    text_overlay.data                      = "{\\fs"..input.font_size.."}"..text
+    local res                              = text_overlay:update()
+
+    return (res and res.x1) and (res.x1 - res.x0) or 0
 end
 
 function input.get_clipboard()
@@ -42,14 +52,36 @@ end
 
 function input.texts()
 
-    if text == "" then return "", string.format("{\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s", (input.cursorTheme == "black") and "000000" or "FFFFFF", input.font_size, input.font_size) end
+    if text == "" then return "", string.format("{\\bord0\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s", input.cursor_theme == "black" and "000000" or "FFFFFF", input.font_size, input.font_size), 0 end
+
+    if cached.text and (cached.text == text and cached.cursor == cursor) then return build_lines(cached.pre_cursor, cached.post_cursor, cached.offset) end
 
     local pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
     local post_cursor = utf8.sub(text, cursor + 1, 0)
+    local offset      = 0
 
-    return
-    pre_cursor..post_cursor,
-    string.format("{\\bord0\\alpha&HFF&\\fs%s}", input.font_size)..pre_cursor..string.format("{\\alpha&H00&\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s{\\p0\\alpha&HFF&}", (input.cursorTheme == "black") and "000000" or "FFFFFF", input.font_size, input.font_size)..post_cursor
+    if s_width > 0 and s_height > 0 and b_width > 0 then
+
+        local pre_cursor_width  = get_text_width(pre_cursor)
+        local search_text_width = get_text_width(pre_cursor..post_cursor)
+
+        offset = search_text_width > b_width and math.max(0, math.min(pre_cursor_width - b_width / 2, search_text_width - b_width)) or 0
+    end
+
+    cached.text        = text
+    cached.cursor      = cursor
+    cached.pre_cursor  = pre_cursor
+    cached.post_cursor = post_cursor
+    cached.offset      = offset
+
+    return build_lines(pre_cursor, post_cursor, offset)
+end
+
+function input.calculate_offset(width, height, bar_width)
+
+    s_width  = width
+    s_height = height
+    b_width  = bar_width
 end
 
 function input.bindings(after_changes)
@@ -251,9 +283,23 @@ end
 
 function input.reset()
 
-    defaults()
+    input.cursor_theme = "black" --black,white
+    input.font_size    = 0
+    input.max_length   = 255
+    input.format       = "" --regex
+    input.accept_only  = "" --digits,text
+    cursor             = 0
+    s_width            = 0
+    s_height           = 0
+    b_width            = 0
+    cached             = {}
 end
 
-input.init = input.reset
+function input.init()
+
+    text = ""
+
+    input.reset()
+end
 
 return input

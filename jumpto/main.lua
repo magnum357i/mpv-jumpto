@@ -2,7 +2,7 @@
 
 ╔════════════════════════════════╗
 ║           MPV jumpto           ║
-║             v2.0.2             ║
+║             v2.0.3             ║
 ╚════════════════════════════════╝
 
 ]]
@@ -15,7 +15,7 @@ local config  = {
     border       = 0,
     font_size    = 24,
     width        = 280,
-    box_alpha    = 80,
+    box_alpha    = 80, --0-255
     box_color    = "000000",
     cursor_color = "white", --white,black
     padding      = 16,
@@ -145,15 +145,17 @@ local function render()
     updateOverlay(ass.text)
 end
 
-local function setClipboard(text)
+local function setClipboard()
 
     if isWindows then
 
-        runCommand({"powershell", "-NoProfile", "-Command", 'Set-Clipboard -Value @"\n'..text..'\n"@'})
+        runCommand({"powershell", "-NoProfile", "-Command", 'Set-Clipboard -Value @"\n'..input.get_text()..'\n"@'})
     else
 
-        runCommand({"xclip", "-selection", "clipboard", '<<EOF\n'..text..'\nEOF\n'})
+        runCommand({"xclip", "-selection", "clipboard", '<<EOF\n'..input.get_text()..'\nEOF\n'})
     end
+
+    mp.osd_message("Copied frame number or timestamp.", 5)
 end
 
 local function frame2timestamp(frame)
@@ -202,9 +204,9 @@ local function toggle(mode)
 
         input.init()
 
-        jumpMode          = mode
-        input.font_size   = config.font_size
-        input.cursorTheme = config.cursor_color
+        jumpMode           = mode
+        input.font_size    = config.font_size
+        input.cursor_theme = config.cursor_color
 
         if jumpMode == "frame" then
 
@@ -223,6 +225,8 @@ local function toggle(mode)
 
         opened = true
     else
+
+        input.reset()
 
         unsetBindings()
         updateOverlay("", 0, 0)
@@ -246,7 +250,6 @@ local function bindingList()
             func = function ()
 
                 toggle()
-                input.reset()
             end,
             opts = nil
         },
@@ -256,12 +259,8 @@ local function bindingList()
             key  = "ctrl+c",
             func = function ()
 
-                setClipboard(input.get_text())
-
-                mp.osd_message("Copied frame number or timestamp.", 5)
-
                 toggle()
-                input.reset()
+                setClipboard()
             end,
             opts = nil
         },
@@ -273,7 +272,6 @@ local function bindingList()
 
                 toggle()
                 jumpTo()
-                input.reset()
             end,
             opts = nil
         },
@@ -284,7 +282,6 @@ local function bindingList()
             func = function ()
 
                 toggle()
-                input.reset()
             end,
             opts = nil
         }
