@@ -2,14 +2,13 @@
 
 ╔════════════════════════════════╗
 ║           MPV jumpto           ║
-║             v2.0.1             ║
+║             v2.0.2             ║
 ╚════════════════════════════════╝
 
 ]]
 
 local options = require 'mp.options'
 local assdraw = require "mp.assdraw"
-local utf8    = require "fastutf8"
 local input   = require "input"
 local config  = {
 
@@ -18,7 +17,7 @@ local config  = {
     width        = 280,
     box_alpha    = 80,
     box_color    = "000000",
-    cursor_color = "FFFFFF",
+    cursor_color = "white", --white,black
     padding      = 16,
     round        = 8,
     label_text   = "Jump to:",
@@ -203,14 +202,14 @@ local function toggle(mode)
 
         input.init()
 
-        jumpMode        = mode
-        input.font_size = config.font_size
-        input.color     = assColor(config.cursor_color)
+        jumpMode          = mode
+        input.font_size   = config.font_size
+        input.cursorTheme = config.cursor_color
 
         if jumpMode == "frame" then
 
-            input.max_length = config.max_length
-            input.acceptOnly = "digits"
+            input.max_length  = config.max_length
+            input.accept_only = "digits"
         else
 
             input.format = "[0-9]:[0-5][0-9]:[0-5][0-9]%.[0-9][0-9]"

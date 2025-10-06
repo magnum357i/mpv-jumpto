@@ -1,24 +1,27 @@
---v1.0
-local utf8   = require "fastutf8"
-local input  = {
+--v1.1
+local utf8  = require "fastutf8"
+local input = {}
+local cursor, text
 
-    color      = "000000",
-    font_size  = 0,
-    max_length = 500,
-    format     = "",
-    acceptOnly = ""  --digits,text
-}
-local cursor = 0
-local text   = ""
+local function defaults()
+
+    input.cursorTheme = "black"
+    input.font_size   = 0
+    input.max_length  = 500
+    input.format      = ""
+    input.accept_only = "" --digits,text
+    cursor            = 0
+    text              = ""
+end
 
 local function filter(str)
 
-    if input.acceptOnly == "" then return str end
+    if input.accept_only == "" then return str end
 
-    if input.acceptOnly == "digits" then
+    if input.accept_only == "digits" then
 
         return str:gsub("%D+", "")
-    elseif input.acceptOnly == "text" then
+    elseif input.accept_only == "text" then
 
         return str:gsub("%d+", "")
     end
@@ -39,19 +42,17 @@ end
 
 function input.texts()
 
-    local preCursor, postCursor = "", ""
+    if text == "" then return "", string.format("{\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s", (input.cursorTheme == "black") and "000000" or "FFFFFF", input.font_size, input.font_size) end
 
-    if text == "" then return "", string.format("{\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s", input.color, input.font_size, input.font_size) end
-
-    preCursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
-    postCursor = utf8.sub(text, cursor + 1, 0)
+    local pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+    local post_cursor = utf8.sub(text, cursor + 1, 0)
 
     return
-    preCursor..postCursor,
-    string.format("{\\bord0\\alpha&HFF&\\fs%s}", input.font_size)..preCursor..string.format("{\\alpha&H00&\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s{\\p0\\alpha&HFF&}", input.color, input.font_size, input.font_size)..postCursor
+    pre_cursor..post_cursor,
+    string.format("{\\bord0\\alpha&HFF&\\fs%s}", input.font_size)..pre_cursor..string.format("{\\alpha&H00&\\p1\\c&H%s&}m 0 0 l 1 0 l 1 %s l 0 %s{\\p0\\alpha&HFF&}", (input.cursorTheme == "black") and "000000" or "FFFFFF", input.font_size, input.font_size)..post_cursor
 end
 
-function input.bindings(afterChanges)
+function input.bindings(after_changes)
 
     local list = {
 
@@ -62,7 +63,7 @@ function input.bindings(afterChanges)
 
                 cursor = 0
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = nil
         },
@@ -74,7 +75,7 @@ function input.bindings(afterChanges)
 
                 cursor = utf8.len(text)
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = nil
         },
@@ -91,7 +92,7 @@ function input.bindings(afterChanges)
                 cursor = cursor - 1
                 cursor = math.max(cursor, 0)
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = {repeatable = true}
         },
@@ -111,7 +112,7 @@ function input.bindings(afterChanges)
 
                 cursor = math.min(cursor, count)
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = {repeatable = true}
         },
@@ -121,34 +122,30 @@ function input.bindings(afterChanges)
             key  = "ctrl+v",
             func = function ()
 
-                local clipboardText = input.get_clipboard()
+                local clipboard_text = input.get_clipboard()
 
                 if input.format == "" then
 
-                    local preCursor  = utf8.sub(text, 1,          cursor)
-                    local postCursor = utf8.sub(text, cursor + 1, 0)
-                    text             = preCursor..clipboardText..postCursor
-                    local count      = utf8.len(text)
+                    local count = utf8.len(text)
 
-                    if count > input.max_length then
+                    if count >= input.max_length then return end
 
-                        text   = utf8.sub(text, 1, input.max_length)
-                        cursor = count
-                    else
+                    local pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+                    local post_cursor = utf8.sub(text, cursor + 1, 0)
+                    clipboard_text    = utf8.sub(clipboard_text, 1, input.max_length - count)
+                    text              = pre_cursor..clipboard_text..post_cursor
+                    cursor            = cursor + utf8.len(clipboard_text)
 
-                        cursor = cursor + utf8.len(clipboardText)
-                    end
+                    if after_changes then after_changes() end
+                elseif text ~= clipboard_text and string.find(clipboard_text, "^"..input.format.."$") then
 
-                    if afterChanges then afterChanges() end
-                elseif text ~= clipboardText and string.find(clipboardText, "^"..input.format.."$") then
-
-                    text   = clipboardText
+                    text   = clipboard_text
                     cursor = utf8.len(text)
 
-                    if afterChanges then afterChanges() end
+                    if after_changes then after_changes() end
                 end
             end,
-            opts = nil
+            opts = {repeatable = true}
         },
 
         deletebackward = {
@@ -160,13 +157,13 @@ function input.bindings(afterChanges)
 
                 if cursor == 0 then return end
 
-                cursor           = cursor - 1
-                cursor           = math.max(cursor, 0)
-                local preCursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
-                local postCursor = utf8.sub(text, cursor + 2, 0)
-                text      = preCursor..postCursor
+                cursor            = cursor - 1
+                cursor            = math.max(cursor, 0)
+                local pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+                local post_cursor = utf8.sub(text, cursor + 2, 0)
+                text              = pre_cursor..post_cursor
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = {repeatable = true}
         },
@@ -182,11 +179,11 @@ function input.bindings(afterChanges)
 
                 if count == cursor then return end
 
-                local preCursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
-                local postCursor = utf8.sub(text, cursor + 2, 0)
-                text             = preCursor..postCursor
+                local pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+                local post_cursor = utf8.sub(text, cursor + 2, 0)
+                text              = pre_cursor..post_cursor
 
-                if afterChanges then afterChanges() end
+                if after_changes then after_changes() end
             end,
             opts = {repeatable = true}
         },
@@ -198,29 +195,29 @@ function input.bindings(afterChanges)
 
                 if info.key_text and filter(info.key_text) ~= "" and (info.event == "press" or info.event == "down" or info.event == "repeat") then
 
-                    local preCursor, postCursor
+                    local pre_cursor, post_cursor
                     local count = utf8.len(text)
 
                     if input.format == "" then
 
-                        if count > input.max_length then return end
+                        if count >= input.max_length then return end
 
                         if count == 0 then
 
                             text = info.key_text
                         else
 
-                            preCursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
-                            postCursor = utf8.sub(text, cursor + 1, 0)
-                            text       = preCursor..info.key_text..postCursor
+                            pre_cursor  = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+                            post_cursor = utf8.sub(text, cursor + 1, 0)
+                            text        = pre_cursor..info.key_text..post_cursor
                         end
 
                         cursor = cursor + 1
                     else
 
-                        preCursor      = cursor == 0 and "" or utf8.sub(text, 1, cursor)
-                        postCursor     = utf8.sub(text, cursor + 2, 0)
-                        local tempText = preCursor..info.key_text..postCursor
+                        pre_cursor     = cursor == 0 and "" or utf8.sub(text, 1, cursor)
+                        post_cursor    = utf8.sub(text, cursor + 2, 0)
+                        local tempText = pre_cursor..info.key_text..post_cursor
 
                         if not string.find(tempText, "^"..input.format.."$") or count == cursor then return end
 
@@ -233,7 +230,7 @@ function input.bindings(afterChanges)
                         end
                     end
 
-                    if afterChanges then afterChanges() end
+                    if after_changes then after_changes() end
                 end
             end,
             opts = {repeatable = true, complex = true}
@@ -254,13 +251,7 @@ end
 
 function input.reset()
 
-    input.color      = "000000"
-    input.font_size  = 0
-    input.max_length = 500
-    input.format     = ""
-    input.acceptOnly = ""
-    cursor           = 0
-    text             = ""
+    defaults()
 end
 
 input.init = input.reset
