@@ -2,6 +2,7 @@
 **Jump to** plugin for mpv
 
 https://github.com/user-attachments/assets/a1be69e1-e676-42fa-90e0-c63cd9a544cb
+
 *Inspired by default mpv panels*
 
 # Key Bindings
