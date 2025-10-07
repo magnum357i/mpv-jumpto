@@ -1,8 +1,7 @@
 # mpv-jumpto
 **Jump to** plugin for mpv
 
-![Example for Jumpto](https://github.com/magnum357i/mpv-jumpto/blob/main/jumpto.jpg)
-![Example for Jumpto 2](https://github.com/magnum357i/mpv-jumpto/blob/main/jumpto2.jpg)
+https://github.com/user-attachments/assets/a1be69e1-e676-42fa-90e0-c63cd9a544cb
 *Inspired by default mpv panels*
 
 # Key Bindings
