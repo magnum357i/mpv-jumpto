@@ -2,7 +2,7 @@
 
 ╔════════════════════════════════╗
 ║           MPV jumpto           ║
-║             v2.0.3             ║
+║             v2.0.4             ║
 ╚════════════════════════════════╝
 
 ]]
@@ -12,16 +12,16 @@ local assdraw = require "mp.assdraw"
 local input   = require "input"
 local config  = {
 
-    border       = 0,
-    font_size    = 24,
-    width        = 280,
-    box_alpha    = 80, --0-255
-    box_color    = "000000",
-    cursor_color = "white", --white,black
-    padding      = 16,
-    round        = 8,
-    label_text   = "Jump to:",
-    max_length   = 10
+    font_size          = 24,
+    width              = 280,
+    box_alpha          = 80,         --0-255
+    box_color          = "000000",
+    cursor_color       = "white",    --white,black
+    padding            = 16,
+    round              = 8,
+    label_text         = "Jump to:",
+    max_length         = 10,
+    copy_aegisub_style = true        --If true, copies in "0:00:00.00" format to the clipboard.
 }
 local jumpMode             = ""
 local opened               = false
@@ -66,7 +66,7 @@ end
 local function calculateTextWidth(text, fontSize)
 
     textOverlay.res_x, textOverlay.res_y = data.screenWidth, data.screenHeight
-    textOverlay.data                     = "{\\fs"..fontSize.."}"..text
+    textOverlay.data                     = "{\\bord0\\b0\\fs"..fontSize.."}"..text
     local res                            = textOverlay:update()
 
     return (res and res.x1) and (res.x1 - res.x0) or 0
@@ -110,7 +110,7 @@ local function render()
     ass:new_event()
     ass:an(7)
     ass:pos(data.x , data.y)
-    ass:append(string.format("{\\bord0\\blur0\\1c&H%s&\\1a&H%x&}", assColor(config.box_color), config.box_alpha))
+    ass:append(string.format("{\\bord0\\1c&H%s&\\1a&H%x&}", assColor(config.box_color), config.box_alpha))
     ass:draw_start()
     ass:round_rect_cw(0, 0, data.boxWidth, data.boxHeight, config.round, config.round)
     ass:draw_stop()
@@ -131,7 +131,6 @@ local function render()
     ass:new_event()
     ass:an(7)
     ass:pos(data.x + config.padding + labelWidth, data.y + config.padding)
-    ass:append(string.format("{\\bord%s\\fs%s}", config.border, config.font_size))
     ass:append(text)
 
     --cursor
@@ -147,26 +146,36 @@ end
 
 local function setClipboard()
 
+    local time = input.get_text()
+
+    if config.copy_aegisub_style then time = time:gsub("(%.%d%d)%d$", "%1") end
+
     if isWindows then
 
-        runCommand({"powershell", "-NoProfile", "-Command", 'Set-Clipboard -Value @"\n'..input.get_text()..'\n"@'})
+        runCommand({"powershell", "-NoProfile", "-Command", 'Set-Clipboard -Value @"\n'..time..'\n"@'})
     else
 
-        runCommand({"xclip", "-selection", "clipboard", '<<EOF\n'..input.get_text()..'\nEOF\n'})
+        runCommand({"xclip", "-selection", "clipboard", '<<EOF\n'..time..'\nEOF\n'})
     end
 
-    mp.osd_message("Copied frame number or timestamp.", 5)
+    if jumpMode == "frame" then
+
+        mp.osd_message("Frame number copied.", 3)
+    else
+
+        mp.osd_message("Timestamp copied.", 3)
+    end
 end
 
 local function frame2timestamp(frame)
 
-    local fps     = mp.get_property("container-fps")
-    local time    = tonumber(frame) / fps
-    local hours   = math.floor(time / 3600)
-    local minutes = math.floor((time % 3600) / 60)
-    local seconds = time % 60
+    local fps  = mp.get_property("container-fps")
+    local time = tonumber(frame) / fps
+    local h    = math.floor(time / 3600)
+    local m    = math.floor(time / 60) % 60
+    local s    = time % 60
 
-    return string.format("%d:%02d:%05.2f", hours, minutes, seconds)
+    return string.format("%d:%02d:%06.3f", h, m, s)
 end
 
 local function currentTime()
@@ -184,7 +193,7 @@ local function jumpTo()
 
         if tonumber(input.get_text()) >= tonumber(mp.get_property("estimated-frame-count")) then
 
-            mp.osd_message("Frame number is greater than total frame number.", 5)
+            mp.osd_message("Frame number is greater than total frame number.", 3)
 
             return
         end
@@ -214,7 +223,7 @@ local function toggle(mode)
             input.accept_only = "digits"
         else
 
-            input.format = "[0-9]:[0-5][0-9]:[0-5][0-9]%.[0-9][0-9]"
+            input.format = "[0-9]:[0-5][0-9]:[0-5][0-9]%.[0-9][0-9][0-9]"
         end
 
         input.default(currentTime())
@@ -237,10 +246,20 @@ end
 
 local function bindingList()
 
-    local inputBindings = input.bindings(function()
+    local inputBindings = input.bindings({
 
-        render()
-    end)
+        after_changes = function()
+
+            render()
+        end,
+
+        edit_clipboard = function(text)
+
+            if #text == 10 then text = text.."0" end
+
+            return text
+        end
+    })
 
     local defaultBindings = {
 
@@ -312,13 +331,13 @@ local function stepFrame(direction)
         if number < 0 then return end
 
         mp.commandv("frame-back-step")
-        mp.osd_message(string.format("%s / %s", number, total), 5)
+        mp.osd_message(string.format("%s / %s", number, total), 3)
     elseif direction == "forward" then
 
         number = number + 1
 
         mp.commandv("frame-step", 1, "mute")
-        mp.osd_message(string.format("%s / %s", number, total), 5)
+        mp.osd_message(string.format("%s / %s", number, total), 3)
     end
 end
 
