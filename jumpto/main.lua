@@ -2,7 +2,7 @@
 
 ╔════════════════════════════════╗
 ║           MPV jumpto           ║
-║             v2.0.4             ║
+║             v2.0.5             ║
 ╚════════════════════════════════╝
 
 ]]
@@ -189,21 +189,30 @@ end
 
 local function jumpTo()
 
+    local time = input.get_text()
+
     if jumpMode == "frame" then
 
-        if tonumber(input.get_text()) >= tonumber(mp.get_property("estimated-frame-count")) then
+        time = tonumber(time)
+
+        if not time then
+
+            mp.osd_message("Frame number is unvalid.", 3)
+
+            return
+        elseif time >= tonumber(mp.get_property("estimated-frame-count")) then
 
             mp.osd_message("Frame number is greater than total frame number.", 3)
 
             return
         end
 
-        mp.commandv("seek", frame2timestamp(input.get_text()), "absolute")
+        mp.commandv("seek", frame2timestamp(time), "absolute")
 
         return
     end
 
-    mp.commandv("seek", input.get_text(), "absolute")
+    mp.commandv("seek", time, "absolute")
     mp.osd_message("")
 end
 
@@ -241,6 +250,8 @@ local function toggle(mode)
         updateOverlay("", 0, 0)
 
         opened = false
+
+        collectgarbage()
     end
 end
 
